@@ -32,8 +32,8 @@ import gdsc.omero
 
 PARAM_DATATYPE = "Data_Type"
 PARAM_IDS = "IDs"
-PARAM_TAG_ARCHIVED = "Force"
-PARAM_CLEAR = "Clear"
+PARAM_EXPIRY = "Expiry"
+PARAM_NOTES = "Description"
 
 def getUserId(description):
     """
@@ -79,6 +79,10 @@ def run(conn, params):
     if not images:
         return (0,0,0)
 
+    # TODO
+    # Allow group owners with read permissions the ability to tag
+    # images of members of the group.
+    
     linked_id = conn.getEventContext().userId
     linked_omename = conn.getEventContext().userName
 
@@ -88,6 +92,39 @@ def run(conn, params):
     # correct when saving a new tag
     service_opts = conn.SERVICE_OPTS  #.copy()
     service_opts.setOmeroGroup(conn.getEventContext().groupId)
+
+    # List all the images which already have the tag or are already in the
+    # archive process
+    hql = "select distinct link.parent.id " \
+            "from ImageAnnotationLink link " \
+            "where link.child.class is MapAnnotation " \
+            "and link.child.name in (:tags) " \
+            "and link.parent.id in (:values)"
+
+    p = Parameters()
+    p.map = {}
+    tags = [gdsc.omero.TAG_TO_ARCHIVE, gdsc.omero.TAG_PENDING, gdsc.omero.TAG_ARCHIVED]
+    p.map['tags'] = rlist([rstring(x) for x in tags]) 
+    p.map["values"] = rlist([rlong(x.id) for x in images])
+    
+    ignore = set()
+    for result in qs.projection(hql, p, service_opts):
+        ignore.add(result[0].val)
+
+    # Tag all the remaining images with the TO-ARCHIVE tag
+    links = []
+    for x in images:
+        if x.id in ignore:
+            continue
+        link = omero.model.ImageAnnotationLinkI()
+        link.parent = omero.model.ImageI(x.id, False)
+        # link.child is set later when we know there are links to create
+        links.append(link)
+
+    existing = len(ignore)
+    
+    if not links:
+        return (0, existing, 0)
 
     # Find the to-archive tag
     tag_id = 0
@@ -110,10 +147,6 @@ def run(conn, params):
     
     if not tag_id:
         # Create tag if necessary
-        if params[PARAM_CLEAR]:
-            # Q. What to do here? How to clear tags that the user does not own.
-            return (0,0,0)
-
         tag = omero.gateway.MapAnnotationWrapper(conn)
         tag.setName(gdsc.omero.TAG_TO_ARCHIVE)
         tag.setNs("archiving")
@@ -124,90 +157,63 @@ def run(conn, params):
         tag_id = tag.getId()
         if tag_id == 0:
             print("ERROR : Unable to find tag", gdsc.omero.TAG_TO_ARCHIVE)
-            return (0,0,0)
+            return (0,existing,0)
 
-    if params[PARAM_CLEAR]:
-        print("Removing tag:", tag_id, gdsc.omero.TAG_TO_ARCHIVE)
-        
-        # Remove the to-archive tag from all the images
-        # Get the link Ids and then delete objects
-        hql = "select link.id " \
-                "from ImageAnnotationLink link " \
-                "where link.child.class is MapAnnotation " \
-                "and link.child.name = :value " \
-                "and link.parent.id in (:values)"
-        
-        p = Parameters()
-        p.map = {}
-        p.map["values"] = rlist([rlong(x.id) for x in images])
-        p.map["value"] = rstring(gdsc.omero.TAG_TO_ARCHIVE)
-        
-        link_ids = [x[0].val for x in 
-                       qs.projection(hql, p, service_opts)]
-        
-        count = len(link_ids)
-        if not count:
-            return (0,0,0)
-        
-        handle = conn.deleteObjects('ImageAnnotationLink', link_ids)
-        cb = omero.callbacks.CmdCallbackI(conn.c, handle)
-        while not cb.block(500):
-            log(".")
-        r = cb.getResponse()
-        cb.close(True)
-        if isinstance(r, omero.cmd.ERR):
-            print("Failed to remove links: %s" % cb.getResponse())
-            return (0,0,count)
-        
-        return (-count,0,0)
-    
-    
-    print("Applying tag:", tag_id, gdsc.omero.TAG_TO_ARCHIVE)
+    # Add the tag to the links
+    for link in links:
+        link.child = omero.model.MapAnnotationI(tag_id, False)
 
-    # List all the images which already have the tag or are already archived
-    hql = "select distinct link.parent.id " \
-            "from ImageAnnotationLink link " \
-            "where link.child.class is MapAnnotation " \
-            "and link.child.name in (:tags) " \
-            "and link.parent.id in (:values)"
+    # Add the archive notes
+    tag = omero.gateway.MapAnnotationWrapper(conn)
+    tag.setName(gdsc.omero.TAG_ARCHIVE_NOTE)
+    tag.setNs("archiving")
+    tag.setDescription("Owner : " + str(linked_id) + " : " + 
+                        linked_omename)
+    tag.setValue([['Owner id',str(linked_id)],
+                  ['Owner',linked_omename],
+                  [PARAM_EXPIRY,str(params[PARAM_EXPIRY])],
+                  [PARAM_NOTES,params[PARAM_NOTES]]])
+    tag.save()
+    tag_id2 = tag.getId()
+    if tag_id2 == 0:
+        print("ERROR : Unable to create tag", gdsc.omero.TAG_ARCHIVE_NOTE)
+        return (0, existing, 0)
 
-    p = Parameters()
-    p.map = {}
-    tags = [gdsc.omero.TAG_TO_ARCHIVE]
-    if not params[PARAM_TAG_ARCHIVED]:
-        tags.append(gdsc.omero.TAG_PENDING)
-        tags.append(gdsc.omero.TAG_ARCHIVED)
-    p.map['tags'] = rlist([rstring(x) for x in tags]) 
-    p.map["values"] = rlist([rlong(x.id) for x in images])
-    
-    ignore = set()
-    for result in qs.projection(hql, p, service_opts):
-        ignore.add(result[0].val)
-
-    # Tag all the remaining images with the TO-ARCHIVE tag
-    links = []
+    links2 = []
     for x in images:
         if x.id in ignore:
             continue
         link = omero.model.ImageAnnotationLinkI()
         link.parent = omero.model.ImageI(x.id, False)
-        link.child = omero.model.MapAnnotationI(tag_id, False)
-        links.append(link)
+        link.child = omero.model.MapAnnotationI(tag_id2, False)
+        links2.append(link)
+    
+    print("Applying tag:", tag_id2, gdsc.omero.TAG_ARCHIVE_NOTE)
+
+    # Bulk apply the archive note. If this fails then no changes
+    # have been committed.
+    try:
+        conn.getUpdateService().saveArray(links2, service_opts)
+    except omero.ValidationException as x:
+        print("ERROR : Unable to create archive notes", x)
+        return (0, existing, 0)
+
+    # Here we have added an archive note. But the images are not yet marked
+    # for archiving. Try and mark the images in bilk and fall back to marking
+    # them individually if this fails.
+    print("Applying tag:", tag_id, gdsc.omero.TAG_TO_ARCHIVE)
 
     new = 0
-    existing = len(ignore)
     error = 0
-    
-    if not links:
-        return (new, existing, error)
-    
+
     try:
         # Will fail if any of the links already exist
         conn.getUpdateService().saveArray(links, service_opts)
         new = len(links)
     except omero.ValidationException as x:
         # This will occur if the user has modified the tag landscape outside
-        # of the script while running. Not likely to happen, but possible
+        # of the script while running. Not likely to happen, but possible.
+        # Try to link each image
         for link in links:
             try:
                 # Service Opts must be in the correct group
@@ -241,14 +247,10 @@ def run_as_program():
 
     parser.add_option("--datatype", dest="datatype", default="Image", 
                      help="Datatype: Image (default); Dataset")
-    parser.add_option("--clear", dest="clear",
-                     action="store_true", default=False, 
-                     help="Clear %s tags (used to stop the archive process)" %
-                     gdsc.omero.TAG_TO_ARCHIVE)
-    parser.add_option("--force", dest="force",
-                     action="store_true", default=False, 
-                     help="Tag images already %s (forces repeat processing)" %
-                     gdsc.omero.TAG_ARCHIVED)
+    parser.add_option("--expiry", dest="expiry", type="int", default="0",
+                     help="Expiry date for the archive in years. Used during archive review")
+    parser.add_option("--description", dest="description",
+                     help="Add a description, for example to identify archive purpose")
    
     group = OptionGroup(parser, "OMERO")
     group.add_option("-u", "--username", dest="username",
@@ -278,8 +280,8 @@ def run_as_program():
     params = {}
     params[PARAM_IDS] = ids
     params[PARAM_DATATYPE] = 'Dataset' if options.datatype == 'Dataset' else 'Image'
-    params[PARAM_CLEAR] = options.clear
-    params[PARAM_TAG_ARCHIVED] = options.force
+    params[PARAM_EXPIRY] = options.expiry
+    params[PARAM_NOTES] = options.description
 
     conn = None
     try:
@@ -329,15 +331,12 @@ See: http://www.sussex.ac.uk/gdsc/intranet/microscopy/omero/scripts/archiveimage
     scripts.List(PARAM_IDS, optional=True, grouping="1.2",
         description="List of Dataset IDs or Image IDs").ofType(rlong(0)),
 
-    scripts.Bool(PARAM_TAG_ARCHIVED, grouping="1.3",
-        description=("Tag images already %s (forces repeat processing)" %
-            gdsc.omero.TAG_ARCHIVED),
-        default=False),
+    scripts.Int(PARAM_EXPIRY, optional=False, grouping="1.3",
+        description="Expiry date for the archive (in years). Used during archive review. Use 0 for never.",
+        default="0"),
 
-    scripts.Bool(PARAM_CLEAR, grouping="1.3",
-        description=("Clear %s tags (used to stop the archive process)" %
-            gdsc.omero.TAG_TO_ARCHIVE),
-        default=False),
+    scripts.String(PARAM_NOTES, optional=True, grouping="1.4",
+        description=("Add a description, for example to identify archive purpose")),
 
     version="1.0",
     authors=["Alex Herbert", "GDSC"],
@@ -354,7 +353,7 @@ See: http://www.sussex.ac.uk/gdsc/intranet/microscopy/omero/scripts/archiveimage
             if client.getInput(key):
                 params[key] = client.getInput(key, unwrap=True)
 
-        # Call the main script - returns the number of images and total bytes
+        # Call the main script - returns the number of images
         (new, existing, error) = run(conn, params)
 
         print("New      : %s" % new)
