@@ -113,7 +113,7 @@ for example all data can be back-up to tape and the file store removed.
 Unarchiving will require the correct image files are identified and returned to
 the same location.
 
-A script to perform archiving to file is provided in the [tools/bin](source/tools/bin) directory.
+A script to perform archiving to file is provided in the [tools/bin](src/tools/bin) directory.
 
 ## Archiving Details <a name="archiving-details"></a>
 
