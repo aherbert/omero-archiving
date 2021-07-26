@@ -38,7 +38,7 @@ PARAM_NOTES = "Description"
 def getUserId(description):
     """
     Get the user Id from the tag description
-    
+
     @param description: The tag description
     """
     tokens = description.split(':')
@@ -82,7 +82,7 @@ def run(conn, params):
     # TODO
     # Allow group owners with read permissions the ability to tag
     # images of members of the group.
-    
+
     linked_id = conn.getEventContext().userId
     linked_omename = conn.getEventContext().userName
 
@@ -104,9 +104,9 @@ def run(conn, params):
     p = Parameters()
     p.map = {}
     tags = [gdsc.omero.TAG_TO_ARCHIVE, gdsc.omero.TAG_PENDING, gdsc.omero.TAG_ARCHIVED]
-    p.map['tags'] = rlist([rstring(x) for x in tags]) 
+    p.map['tags'] = rlist([rstring(x) for x in tags])
     p.map["values"] = rlist([rlong(x.id) for x in images])
-    
+
     ignore = set()
     for result in qs.projection(hql, p, service_opts):
         ignore.add(result[0].val)
@@ -122,14 +122,14 @@ def run(conn, params):
         links.append(link)
 
     existing = len(ignore)
-    
+
     if not links:
         return (0, existing, 0)
 
     # Find the to-archive tag
     tag_id = 0
     tags = list(conn.getObjects(
-            "MapAnnotation", 
+            "MapAnnotation",
             attributes={'name':gdsc.omero.TAG_TO_ARCHIVE,"ns":"archiving"})
     )
 
@@ -139,18 +139,18 @@ def run(conn, params):
     for tag in tags:
         # Check the annotation class since the HQL was returning
         # BooleanAnnotationWrapper previously created with the same name
-        if (tag.canLink() and 
-            type(tag) == omero.gateway.MapAnnotationWrapper and 
+        if (tag.canLink() and
+            type(tag) == omero.gateway.MapAnnotationWrapper and
             getUserId(tag.getDescription()) == linked_id):
             tag_id = tag.id
             break
-    
+
     if not tag_id:
         # Create tag if necessary
         tag = omero.gateway.MapAnnotationWrapper(conn)
         tag.setName(gdsc.omero.TAG_TO_ARCHIVE)
         tag.setNs("archiving")
-        tag.setDescription("Owner : " + str(linked_id) + " : " + 
+        tag.setDescription("Owner : " + str(linked_id) + " : " +
                             linked_omename)
         tag.setValue([[gdsc.omero.TAG_TO_ARCHIVE,"True"]])
         tag.save()
@@ -167,7 +167,7 @@ def run(conn, params):
     tag = omero.gateway.MapAnnotationWrapper(conn)
     tag.setName(gdsc.omero.TAG_ARCHIVE_NOTE)
     tag.setNs("archiving")
-    tag.setDescription("Owner : " + str(linked_id) + " : " + 
+    tag.setDescription("Owner : " + str(linked_id) + " : " +
                         linked_omename)
     tag.setValue([['Owner id',str(linked_id)],
                   ['Owner',linked_omename],
@@ -187,7 +187,7 @@ def run(conn, params):
         link.parent = omero.model.ImageI(x.id, False)
         link.child = omero.model.MapAnnotationI(tag_id2, False)
         links2.append(link)
-    
+
     print("Applying tag:", tag_id2, gdsc.omero.TAG_ARCHIVE_NOTE)
 
     # Bulk apply the archive note. If this fails then no changes
@@ -239,19 +239,19 @@ def run_as_program():
     scripting environment. The connection details must be valid with permissions
     to allow a tag to be added to the specified IDs.
     """
-    
+
     parser = OptionParser(usage="usage: %prog [options] list",
                           description="Program to tag images/datasets for "
                                       "file archiving",
                           add_help_option=True, version="%prog 1.0")
 
-    parser.add_option("--datatype", dest="datatype", default="Image", 
+    parser.add_option("--datatype", dest="datatype", default="Image",
                      help="Datatype: Image (default); Dataset")
     parser.add_option("--expiry", dest="expiry", type="int", default="0",
                      help="Expiry date for the archive in years. Used during archive review")
     parser.add_option("--description", dest="description",
                      help="Add a description, for example to identify archive purpose")
-   
+
     group = OptionGroup(parser, "OMERO")
     group.add_option("-u", "--username", dest="username",
                      default=gdsc.omero.USERNAME,
@@ -264,7 +264,7 @@ def run_as_program():
                      help="OMERO port [%default]")
 
     parser.add_option_group(group)
-    
+
     (options, args) = parser.parse_args()
 
     # Collect all the integer arguments
@@ -317,9 +317,9 @@ Tag the images for archiving.
 Warning:
 
 Images tagged for archiving will be moved to the archive by an archiving
-process. 
+process.
 
-When achiving is complete the images MAY NOT BE AVAILABLE TO VIEW in 
+When achiving is complete the images MAY NOT BE AVAILABLE TO VIEW in
 OMERO, or may have a delay when viewing.
 
 See: http://www.sussex.ac.uk/gdsc/intranet/microscopy/omero/scripts/archiveimages""",  # noqa
