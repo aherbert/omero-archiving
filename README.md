@@ -84,9 +84,25 @@ Archiving from OMERO to Arkivum involves a two step process:
 1. Mark images for archiving
 2. Identify image files and move them to Arkivum
 
-Images are tagged for archiving using a
-custom OMERO script run within the client. The OMERO group annotation permissions are used to
-control archive requests.
+Images are tagged for archiving using a custom OMERO script run within the
+client. The OMERO permissions model allows a user to tag another user's images
+if the group is read-write or read-annotate. This is not allowed for a read-only
+or private group. At this permission level admin users or group owners may view
+other user's images but not annotate them. Note that if a group's permissions
+are lowered to private or read-only then tagging across users is not allowed
+and any existing cross-user tags are removed. For this reason long-term
+archiving tags should be applied by the image owner; these will not be removed
+if group permissions are modified. The OMERO group viewing permissions are
+respected to control archive requests. A user may tag their own images. An admin
+user or group owner is allowed to tag other user's images. This is done by
+using a sudo connection to switch to the image owner to apply the tag.
+
+Warning: Archiving tags may be removed by certain actions within the OMERO
+system. An example is to move an image from one group to another group. It is
+recommended to move images to an appropriately organised storage structure
+(user, dataset and project) before initiating the archive process. This
+minimises the chance of accidentally removing the archive tag metadata from
+archived images.
 
 A background automated archiving script identifies all the physical files
 (original files and/or pixel files) associated with a tagged image and records them in a register. The
