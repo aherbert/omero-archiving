@@ -36,6 +36,15 @@ import gdsc.omero
 PARAM_DATATYPE = "Data_Type"
 PARAM_IDS = "IDs"
 
+def close(conn):
+    """
+    Close the connection
+
+    @param conn: The connection
+    """
+    if conn:
+        conn.close()
+
 def getUserId(description):
     """
     Get the user Id from the tag description
@@ -80,24 +89,63 @@ def run(conn, params):
     if not images:
         return (0,0)
 
-    # TODO
-    # Allow group owners with read permissions the ability to untag
-    # images of members of the group.
-    #
-    # This script will attempt to remove all tags with the name
-    # TAG_TO_ARCHIVE and TAG_ARCHIVE_NOTE.
-    # If the tag is not owned by the user this will fail.
-    # Currently there is no way for other users to tag images for archiving.
-    # When this is true then the reverse must also be supported.
-    
     linked_id = conn.getEventContext().userId
     linked_omename = conn.getEventContext().userName
 
     qs = conn.getQueryService()
 
+    # This script will attempt to remove all tags with the name
+    # TAG_TO_ARCHIVE and TAG_ARCHIVE_NOTE.
+    # If the tag is not owned by the user this will fail.
+    # The Archive_Images.py script allows admin or group owners
+    # to tag images as the image owner. Here we allow them to untag
+    # images.
+
+    # Obtain the image owner and the group.
+    # This should be the same for all images. It may not be if running as
+    # a command line program. When running through a script via OMERO.insight
+    # then the scripting framework should prevent multiple groups. Multiple
+    # owner may occur if a user creates a composite dataset.
+    oids = set()
+    gids = set()
+    for x in images:
+        oids.add(x.getOwner().id)
+        gids.add(x.getDetails().getGroup().id)
+    if len(oids) > 1:
+        raise Exception("ERROR : Untagging not supported for multiple image owners: %s" % oids)
+    if len(gids) > 1:
+        raise Exception("ERROR : Untagging not supported for multiple groups: %s" % gids)
+
+    owner_id = oids.pop()
+    group_id = gids.pop()
+
+    # Elevate permissions if required.
+    conn2 = None
+    conn3 = None
+    if owner_id != linked_id:
+        print("User %s removing tags from user %s images" % (linked_id, owner_id))
+        # Check for allowed permissions
+        if not conn.isAdmin():
+            # Must be the group owner
+            group = conn.getObject('ExperimenterGroup', group_id)
+            # The first list from groupSummary is the group leaders
+            if not any(x.id == linked_id for x in group.groupSummary()[0]):
+                raise Exception("ERROR : Untagging other users images requires group leader permissions")
+            print("Elevating user %s permissions" % linked_id)
+            # Create admin connection
+            conn2 = BlitzGateway(gdsc.omero.USERNAME, gdsc.omero.PASSWORD,
+                                 host=gdsc.omero.HOST, port=gdsc.omero.PORT)
+            if not conn2.connect() or not conn2.isAdmin():
+                raise Exception("Failed to elevate to admin connection: %s" %
+                                conn.getLastError())
+            conn = conn2
+
+        # conn is now an admin connection
+        # conn2 will be closed manually on function return
+
     # Use the actual SERVICE_OPTS
     service_opts = conn.SERVICE_OPTS  #.copy()
-    service_opts.setOmeroGroup(conn.getEventContext().groupId)
+    service_opts.setOmeroGroup(group_id)
 
     # No need to find if any tag exists. Just search for annotations.
 
@@ -114,8 +162,7 @@ def run(conn, params):
     p.map["values"] = rlist([rlong(x.id) for x in images])
     p.map["value"] = rlist([rstring(gdsc.omero.TAG_TO_ARCHIVE), rstring(gdsc.omero.TAG_ARCHIVE_NOTE)])
     
-    link_ids = [x[0].val for x in 
-                    qs.projection(hql, p, service_opts)]
+    link_ids = [x[0].val for x in qs.projection(hql, p, service_opts)]
     
     count = len(link_ids)
     if count:
@@ -130,8 +177,10 @@ def run(conn, params):
         cb.close(True)
         if isinstance(r, omero.cmd.ERR):
             print("Failed to remove links: %s" % cb.getResponse())
+            close(conn2)
             return (0,count)
 
+    close(conn2)
     return (count,0)
 
 
@@ -196,6 +245,9 @@ def run_as_program():
             raise Exception("Failed to connect to OMERO: %s" %
                             conn.getLastError())
 
+        # Allow all groups
+        conn.SERVICE_OPTS.setOmeroGroup(-1)
+
         (removed, error) = run(conn, params)
 
         print (summary(removed, error))
@@ -258,6 +310,10 @@ See: http://www.sussex.ac.uk/gdsc/intranet/microscopy/omero/scripts/cleararchive
         # Combine the totals for the summary message
         msg = summary(removed, error)
         client.setOutput("Message", rstring(msg))
+    except Exception as x:
+        # Special case of invalid tagging permissions is a
+        # omero.ReadOnlyGroupSecurityViolation which has a useful message attribute
+        client.setOutput("Message", rstring(getattr(x, 'message', str(x))))
     finally:
         client.closeSession()
 
