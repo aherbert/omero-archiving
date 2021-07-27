@@ -39,10 +39,10 @@ def init_options():
     group.add_option("--archive_log", dest="archive_log",
                      default=gdsc.omero.ARCHIVE_LOG,
                      help="Directory for archive logs [%default]")
-    group.add_option("--to_archive", dest="to_archive", 
+    group.add_option("--to_archive", dest="to_archive",
                      default=gdsc.omero.TO_ARCHIVE_REGISTER,
                      help="To-Archive register [%default]")
-    group.add_option("--archived", dest="archived", 
+    group.add_option("--archived", dest="archived",
                      default=gdsc.omero.ARCHIVED_REGISTER,
                      help="Archived register [%default]")
     parser.add_option_group(group)
@@ -57,14 +57,14 @@ def log(msg):
     @param msg: The message
     """
     print(msg)
-    
+
 def error(msg):
     """
     Print an error message
     @param msg: The message
     """
     print("ERROR:", msg)
-    
+
 def die(msg):
     """
     Print an error then exit
@@ -95,12 +95,12 @@ def summarise(report):
     """
     banner(report['name'])
     total = report['count'] - report['missing']
-    log("%d / %d file%s" % (total, report['count'], 
+    log("%d / %d file%s" % (total, report['count'],
                             gdsc.omero.pleural(report['count'])))
-    log("%d byte%s (%s)" % (report['bytes'], 
+    log("%d byte%s (%s)" % (report['bytes'],
                             gdsc.omero.pleural(report['bytes']),
                             gdsc.omero.convert(report['bytes'])))
-    
+
 def build_report(name, items):
     """
     Build a summary of the archived paths using the .ark files
@@ -111,7 +111,7 @@ def build_report(name, items):
     report = {}
     report['name'] = name
     report['count'] = len(items)
-    
+
     sum = 0
     missing = 0
     for path in items:
@@ -124,10 +124,10 @@ def build_report(name, items):
             config.read(ark_file)
             # Can get 'image', 'owner', 'linked by', 'path', 'bytes'
             sum = sum + int(config.get(gdsc.omero.ARK_SOURCE, 'bytes'))
-    
+
     report['bytes'] = sum
     report['missing'] = missing
-    
+
     return report
 
 # Gather our code in a main() function
@@ -143,19 +143,19 @@ def main():
 
     except Exception as e:
         die("An error occurred: %s" % e)
-        
+
     # Check for files in the To-Archive and Archived register
     intersect = register.items.intersection(archived.items)
     if intersect:
         size = len(intersect)
-        error("%d file%s already archived, ignoring" % (size, 
+        error("%d file%s already archived, ignoring" % (size,
               '' if size == 1 else 's'))
         register.remove_list(list(intersect))
 
     try:
         to_archive = build_report('To archive', register.items)
         archived = build_report('Archived', archived.items)
-        
+
         summarise(to_archive)
         summarise(archived)
 

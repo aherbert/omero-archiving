@@ -48,7 +48,7 @@ def close(conn):
 def getUserId(description):
     """
     Get the user Id from the tag description
-    
+
     @param description: The tag description
     """
     tokens = description.split(':')
@@ -156,19 +156,19 @@ def run(conn, params):
             "where link.child.class is MapAnnotation " \
             "and link.child.name in (:value) " \
             "and link.parent.id in (:values)"
-    
+
     p = Parameters()
     p.map = {}
     p.map["values"] = rlist([rlong(x.id) for x in images])
     p.map["value"] = rlist([rstring(gdsc.omero.TAG_TO_ARCHIVE), rstring(gdsc.omero.TAG_ARCHIVE_NOTE)])
-    
+
     link_ids = [x[0].val for x in qs.projection(hql, p, service_opts)]
-    
+
     count = len(link_ids)
     if count:
         print("Removing tag:", gdsc.omero.TAG_TO_ARCHIVE)
         print("Removing tag:", gdsc.omero.TAG_ARCHIVE_NOTE)
-        
+
         handle = conn.deleteObjects('ImageAnnotationLink', link_ids)
         cb = omero.callbacks.CmdCallbackI(conn.c, handle)
         while not cb.block(500):
@@ -196,15 +196,15 @@ def run_as_program():
     scripting environment. The connection details must be valid with permissions
     to allow a tag to be added to the specified IDs.
     """
-    
+
     parser = OptionParser(usage="usage: %prog [options] list",
                           description="Program to clear the tag marking images/datasets for "
                                       "file archiving",
                           add_help_option=True, version="%prog 1.0")
 
-    parser.add_option("--datatype", dest="datatype", default="Image", 
+    parser.add_option("--datatype", dest="datatype", default="Image",
                      help="Datatype: Image (default); Dataset")
-   
+
     group = OptionGroup(parser, "OMERO")
     group.add_option("-u", "--username", dest="username",
                      default=gdsc.omero.USERNAME,
@@ -217,7 +217,7 @@ def run_as_program():
                      help="OMERO port [%default]")
 
     parser.add_option_group(group)
-    
+
     (options, args) = parser.parse_args()
 
     # Collect all the integer arguments

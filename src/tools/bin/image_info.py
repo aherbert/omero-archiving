@@ -63,13 +63,13 @@ def init_options():
                      help="OMERO host [%default]")
     group.add_option("--port", dest="port", default=gdsc.omero.PORT,
                      help="OMERO port [%default]")
-    group.add_option("--repository", dest="repository", 
+    group.add_option("--repository", dest="repository",
                      default=gdsc.omero.REPOSITORY,
                      help="OMERO managed repository [%default]")
-    group.add_option("--files", dest="files", 
+    group.add_option("--files", dest="files",
                      default=gdsc.omero.LEGACY_FILES,
                      help="OMERO legacy files directory [%default]")
-    group.add_option("--pixels", dest="pixels", 
+    group.add_option("--pixels", dest="pixels",
                      default=gdsc.omero.LEGACY_PIXELS,
                      help="OMERO legacy pixels directory [%default]")
     parser.add_option_group(group)
@@ -119,7 +119,7 @@ def process_image(conn, image_id, params):
         print("  ERROR: Unknown Image ID = %s" % image_id)
         return False
     return process_image_info(conn, img, params)
-    
+
 def process_image_info(conn, img, params):
     """
     Extract info for the specified image
@@ -172,19 +172,19 @@ def process_image_info(conn, img, params):
         #    print fsImage.getId(), fsImage.getName()
     else:
         path = gdsc.omero.get_legacy_path(options.pixels, img.getPixelsId())
-        
+
         # Q. What about pyramids?
         if pyramid:
-            # Sometimes the pixels file is a pyramid, we cannot check for the 
-            # file since we may not have access to the path. Just assume the 
+            # Sometimes the pixels file is a pyramid, we cannot check for the
+            # file since we may not have access to the path. Just assume the
             # API knows what it is.
             path = path + '_pyramid'
         print("  Pixels file =", path)
-        
+
         for of in img.getImportedImageFiles():
             name = os.path.basename(of.getName())
             print("  Original File = %s (%s)" % (
-                gdsc.omero.get_legacy_path(options.files, 
+                gdsc.omero.get_legacy_path(options.files,
                                            of.getId()), name))
 
     # Optionally extract the annotation files
@@ -193,7 +193,7 @@ def process_image_info(conn, img, params):
         for ann in annotations:
             name = os.path.basename(ann.getFileName())
             print("  File Annotation = %s (%s)" % (
-                gdsc.omero.get_legacy_path(options.files, 
+                gdsc.omero.get_legacy_path(options.files,
                                            ann.getFile().getId()), name))
 
     return True
@@ -258,9 +258,9 @@ def main():
 
         if not conn.isAdmin():
             raise Exception("Require ADMIN privaledges")
-        
+
         # Generic group for query across all of OMERO
-        conn.SERVICE_OPTS.setOmeroGroup(-1)        
+        conn.SERVICE_OPTS.setOmeroGroup(-1)
 
         ttl = gdsc.omero.TIMEOUT * 10
         conn.getSession().setTimeToIdle(rlong(ttl))

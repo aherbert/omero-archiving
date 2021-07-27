@@ -102,9 +102,9 @@ def run(conn, params):
     # To avoid this the tags are applied as the user on the condition:
     # 1. The user tags their own images
     # 2. The group owner or an admin user tags the images
-    # Note: Admin/group owners can view other users images even in 
+    # Note: Admin/group owners can view other users images even in
     # a private group.
-    
+
     # Obtain the image owner and the group.
     # This should be the same for all images. It may not be if running as
     # a command line program. When running through a script via OMERO.insight
@@ -147,7 +147,7 @@ def run(conn, params):
         omename = images[0].getOwner().getName()
         conn2 = conn.suConn(omename, ttl=gdsc.omero.TIMEOUT)
         if not conn2:
-            raise Exception("Failed to connect to OMERO as user ID '%s'" 
+            raise Exception("Failed to connect to OMERO as user ID '%s'"
                             % omename)
         conn = conn2
         # conn2 and conn3 will be closed manually on function return
@@ -357,7 +357,7 @@ def run_as_program():
     params[PARAM_DATATYPE] = 'Dataset' if options.datatype == 'Dataset' else 'Image'
     params[PARAM_EXPIRY] = options.expiry
     params[PARAM_NOTES] = options.description
-    
+
     conn = None
     try:
         print("Creating OMERO gateway")

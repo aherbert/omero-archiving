@@ -57,17 +57,17 @@ def init_options():
     group.add_option("--archive_job", dest="archive_job",
                      default=gdsc.omero.ARCHIVE_JOB,
                      help="Directory for archive jobs [%default]")
-    group.add_option("--archive_root", dest="archive_root", 
+    group.add_option("--archive_root", dest="archive_root",
                      default=gdsc.omero.ARCHIVE_ROOT,
                      help="Archive root (path to copy files) [%default]")
-    group.add_option("--to_archive", dest="to_archive", 
+    group.add_option("--to_archive", dest="to_archive",
                      default=gdsc.omero.TO_ARCHIVE_REGISTER,
                      help="To-Archive register [%default]")
-    group.add_option("--archived", dest="archived", 
+    group.add_option("--archived", dest="archived",
                      default=gdsc.omero.ARCHIVED_REGISTER,
                      help="Archived register [%default]")
     parser.add_option_group(group)
-   
+
     return parser
 
 ###############################################################################
@@ -78,21 +78,21 @@ def log(msg):
     @param msg: The message
     """
     print(msg)
-    
+
 def error(msg):
     """
     Print an error message
     @param msg: The message
     """
     print("ERROR:", msg)
-    
+
 def fatal(msg):
     """
     Print a fatal error
     @param msg: The message
     """
     print("FATAL:", msg)
-    
+
 def die(msg):
     """
     Print a fatal error then exit
@@ -142,7 +142,7 @@ Your archive job file is attached.
 
 ---
 OMERO @ %s """ % (name, result, platform.node())))
-    
+
     with open(job_file, "rb") as f:
         name = name + '.txt'
         part = MIMEApplication(
@@ -151,11 +151,11 @@ OMERO @ %s """ % (name, result, platform.node())))
         )
         part['Content-Disposition'] = ('attachment; filename="%s"' % name)
         msg.attach(part)
-            
+
     smtpObj = smtplib.SMTP('localhost')
     smtpObj.sendmail(gdsc.omero.ADMIN_EMAIL, send_to, msg.as_string())
     smtpObj.quit()
-    
+
 def email_results(userEmail, job_file, result):
     """
     E-mail the result to the user.
@@ -181,7 +181,7 @@ def get_key_number(j, key):
     @param key: The key value (or zero)
     """
     return j[key] if key in j else 0;
-   
+
 def get_option(config, option, section = gdsc.omero.ARK_FILE_ARCHIVER):
     """
     Get the option from the Archive section (or return None)
@@ -191,8 +191,8 @@ def get_option(config, option, section = gdsc.omero.ARK_FILE_ARCHIVER):
     """
     if config.has_option(section, option):
         return config.get(section, option)
-    return None        
-    
+    return None
+
 def process(path):
     """
     Archive the file
@@ -201,15 +201,15 @@ def process(path):
     global options, state_count, state_size
 
     log("Processing file " + path)
-    
+
     if os.path.islink(path):
         warn("Skipping symlink: %s" % path)
         return gdsc.omero.JOB_IGNORE
-    
+
     r = os.stat(path)
     if not S_ISREG(r.st_mode):
         raise Exception("File does not exist: %s" % path)
-        
+
     # Record steps to the .ark file
     ark_file = gdsc.omero.get_ark_path(options.archive_log, path)
     if not os.path.isfile(ark_file):
@@ -221,7 +221,7 @@ def process(path):
         config.add_section(gdsc.omero.ARK_FILE_ARCHIVER)
 
     archived = False
-    
+
     try:
         # Create the path in the archive
         full_path = path
@@ -252,19 +252,19 @@ def process(path):
                 size = int(size)
             except:
                 pass
-        
+
         # Store when the file was copied
         file_copied = False
         try:
             timestamp = float(get_option(config, 'timestamp'))
         except:
-            timestamp = 0            
-        
+            timestamp = 0
+
         if not (os.path.exists(ark_path)):
 
             # Copy to archive and checksum
             log("  Copying to archive")
-            
+
             md5Hasher = hashlib.md5()
             sha256Hasher = hashlib.sha256()
             adler32sum = 1
@@ -280,35 +280,35 @@ def process(path):
                         sha256Hasher.update(buf)
                         adler32sum = adler32(buf, adler32sum)
                         buf = f.read(blocksize)
-                        
+
             md5Digest = md5Hasher.hexdigest()
             sha256Digest = sha256Hasher.hexdigest()
             adler32Digest = str(adler32sum & 0xffffffff)
-            
+
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'md5', md5Digest)
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'sha256', sha256Digest)
-            config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'adler32', 
+            config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'adler32',
                        adler32Digest)
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'size', str(size))
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'path', ark_path)
-        
+
             r = os.stat(ark_path)
             timestamp = r.st_mtime
-            config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'copied', 
+            config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'copied',
                     time.ctime(timestamp))
-            config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'timestamp', 
+            config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'timestamp',
                        str(timestamp))
-            
+
             file_copied = True
-            
+
         elif not (size and md5Digest and sha256Digest and adler32Digest):
 
             # This occurs when the path to the archive already exists.
-            # (Possible if the first copy failed part way through.) 
+            # (Possible if the first copy failed part way through.)
             # Compute the checksum on the original file so the script will
             # error later if the archive has a bad copy.
             log("  Computing checksums")
-            
+
             md5Hasher = hashlib.md5()
             sha256Hasher = hashlib.sha256()
             adler32sum = 1
@@ -322,25 +322,25 @@ def process(path):
                     sha256Hasher.update(buf)
                     adler32sum = adler32(buf, adler32sum)
                     buf = f.read(blocksize)
-                        
+
             md5Digest = md5Hasher.hexdigest()
             sha256Digest = sha256Hasher.hexdigest()
             adler32Digest = str(adler32sum & 0xffffffff)
-            
+
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'md5', md5Digest)
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'sha256', sha256Digest)
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'adler32',
                        adler32Digest)
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'size', str(size))
             config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'path', ark_path)
-        
-        
+
+
         # Report the checksums
         log("  MD5 = " + md5Digest)
         log("  SHA256 = " + sha256Digest)
         log("  Adler32 = " + adler32Digest)
         log("  Size = %d" % size)
-        
+
         # Checksum the archive copy
         log("  Verifying transfer")
         md5Hasher = hashlib.md5()
@@ -354,7 +354,7 @@ def process(path):
                 adler32sum2 = adler32(buf, adler32sum2)
                 buf = f.read(blocksize)
 
-        if (md5Digest != md5Hasher.hexdigest() or 
+        if (md5Digest != md5Hasher.hexdigest() or
             sha256Digest != sha256Hasher.hexdigest() or
             adler32sum != adler32sum2):
             raise Exception("Archived file has different checksum")
@@ -364,10 +364,10 @@ def process(path):
 
         status = "Archived"
         r = os.stat(ark_path)
-        config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'Archived', 
+        config.set(gdsc.omero.ARK_FILE_ARCHIVER, 'Archived',
                    time.ctime(r.st_mtime))
         archived = True
-            
+
         # Create a symlink to the archive location allowing access from
         # a back-up restore.
         # This is only available on unix
@@ -378,12 +378,12 @@ def process(path):
             pass
 
         log("  Status = " + status)
-        
+
     finally:
         # Record the stage we reached
         with open(ark_file, 'w') as f:
             config.write(f)
-            
+
     if archived:
         return gdsc.omero.JOB_FINISHED
     return gdsc.omero.JOB_RUNNING
@@ -401,26 +401,26 @@ def process_job(job_file):
     job = configparser.RawConfigParser()
     job.optionxform = lambda option: option
     job.read(job_file)
-    
+
     # Clear previous job errors
     if (job.has_option(gdsc.omero.JOB_INFO, 'error')):
         job.remove_option(gdsc.omero.JOB_INFO, 'error')
-    
+
     # Count the number of files to process
     size = 0
     for (path, status) in job.items(gdsc.omero.JOB_FILES):
         if path in file_status:
             # This has already been done
-            continue            
+            continue
         if status == gdsc.omero.JOB_RUNNING:
             size = size + 1
 
     if size:
         job.set(gdsc.omero.JOB_INFO, 'status', gdsc.omero.JOB_RUNNING)
-        
+
     # Process the files
     log("Processing %d file%s" % (size, '' if size == 1 else 's'))
-    
+
     error_flag = False
     running = 0
     for (path, status) in job.items(gdsc.omero.JOB_FILES):
@@ -430,27 +430,27 @@ def process_job(job_file):
             # To prevent double processing of files, update the status
             # if this is not the first time we see this file.
             #
-            # Note: this appears to be poor management of the status as it is 
-            # replicated through all job files which must be kept in sync. 
-            # However the status can be determined in this script in the 
-            # process() method. This allows a job file to have its status set 
+            # Note: this appears to be poor management of the status as it is
+            # replicated through all job files which must be kept in sync.
+            # However the status can be determined in this script in the
+            # process() method. This allows a job file to have its status set
             # to running for all files to allow restarting the job.
-            # Also note that tagging of images for archiving has respected 
-            # the many-to-many image-to-file relationship and should prevent 
+            # Also note that tagging of images for archiving has respected
+            # the many-to-many image-to-file relationship and should prevent
             # an image that has been tagged as archived from being processed
             # again. This only occurs when the tag has been added again
             # for testing or when testing by manually
             # manipulating the job files.
             job.set(gdsc.omero.JOB_FILES, path, new_status)
             status = new_status
-            
+
             if status == gdsc.omero.JOB_RUNNING:
                 # This is still running
                 running = running + 1
 
         elif status == gdsc.omero.JOB_RUNNING:
             # This is the first time we process this 'running' file
-            
+
             try:
                 # The process method returns the status or throws an exception
                 status = process(path)
@@ -461,7 +461,7 @@ def process_job(job_file):
                 else:
                     # This is still running
                     running = running + 1
-                
+
             except Exception as e:
                 status = gdsc.omero.JOB_ERROR
                 # Record the error in the job file
@@ -470,7 +470,7 @@ def process_job(job_file):
 
             # Record the status of this file the first time it is processed
             file_status[path] = status
-            
+
             # Record the status change in the job file
             if status != gdsc.omero.JOB_RUNNING:
                 job.set(gdsc.omero.JOB_FILES, path, status)
@@ -478,7 +478,7 @@ def process_job(job_file):
         if status == gdsc.omero.JOB_ERROR:
             error_flag = True
             break
-        
+
     # If finished or error then move the job file
     dir = ''
     email_address = ''
@@ -489,13 +489,13 @@ def process_job(job_file):
         dir = os.path.join(options.archive_job, gdsc.omero.JOB_FINISHED)
         # Only email the user when finished
         email_address = get_option(job, 'email', gdsc.omero.JOB_INFO)
-        
+
     if dir:
         # This is complete
         status = os.path.basename(dir)
         job.set(gdsc.omero.JOB_INFO, 'complete', time.strftime("%c"))
         job.set(gdsc.omero.JOB_INFO, 'status', status)
-        
+
     # Save changes to the job file
     with open(job_file, 'w') as f:
         job.write(f)
@@ -503,12 +503,12 @@ def process_job(job_file):
     if dir:
         # This is complete. E-mail the job file to the user/admin
         email_results(email_address, job_file, status)
-        
+
         # Move to the processed folder
         log("Moving %s to %s" % (job_file, dir))
         shutil.move(job_file, dir)
-        
-        
+
+
 def check_dir(path, carp=True):
     """
     Check the path exists
@@ -536,9 +536,9 @@ def banner(title):
 
 # Gather our code in a main() function
 def main():
-    
+
     parser = init_options()
-    
+
     global options, file_status, paths
     file_status = {}
     paths = []
@@ -546,11 +546,11 @@ def main():
 
     try:
         pid_file = gdsc.omero.PIDFile(
-            os.path.join(options.archive_job, 
+            os.path.join(options.archive_job,
                          os.path.basename(__file__) + '.pid'))
     except Exception as e:
         die("Cannot start process: %s" % e)
-        
+
     banner("Archive Files to File Store")
 
     try:
@@ -564,10 +564,10 @@ def main():
         # Get the running job files
         job_dir = os.path.join(options.archive_job, gdsc.omero.JOB_RUNNING)
         _, _, filenames = next(os.walk(job_dir), (None, None, []))
-        
+
         n = len(filenames)
         log("Processing %d job%s" % (n, gdsc.omero.pleural(n)))
-    
+
         for path in filenames:
             process_job(os.path.join(job_dir, path))
 
@@ -576,7 +576,7 @@ def main():
         archived = gdsc.omero.Register(options.archived)
 
         # Add all running files to the to_archive register.
-        # Note: If the script errors part way through the jobs then this 
+        # Note: If the script errors part way through the jobs then this
         # will be incomplete. The register is only used for reporting so
         # this is not a blocker.
         # TODO - create a script that can create the to_archive register from
@@ -586,18 +586,18 @@ def main():
             if v == gdsc.omero.JOB_RUNNING:
                 running.append(k)
         register.save(running)
-        
+
         # Add archived files to the archived register
         size = len(paths)
         if size:
             log("Archived %d file%s" % (size, '' if size == 1 else 's'))
             archived.add_list(paths)
-            
+
     except Exception as e:
         fatal("An error occurred: %s" % e)
-            
+
     pid_file.delete()
-            
+
 
 # Standard boilerplate to call the main() function to begin
 # the program.

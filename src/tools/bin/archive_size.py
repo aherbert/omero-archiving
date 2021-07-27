@@ -38,9 +38,9 @@ def init_options():
                           description="Total the size of files in a file list",
                           add_help_option=True, version="%prog 1.0")
 
-    parser.add_option("-v", "--verbose", dest="verbose", default=False, 
+    parser.add_option("-v", "--verbose", dest="verbose", default=False,
                       action='store_true', help="Verbose mode")
-    
+
     return parser
 
 ###############################################################################
@@ -51,14 +51,14 @@ def log(msg):
     @param msg: The message
     """
     print(msg)
-    
+
 def error(msg):
     """
     Print an error message
     @param msg: The message
     """
     print("ERROR:", msg)
-    
+
 def die(msg):
     """
     Print an error then exit
@@ -96,13 +96,13 @@ def main():
                 files = files + 1
                 size = size + r.st_size
                 if options.verbose:
-                    print ("%s : %d (%s) : %s" % (path, r.st_size, 
-                           gdsc.omero.convert(r.st_size), 
+                    print ("%s : %d (%s) : %s" % (path, r.st_size,
+                           gdsc.omero.convert(r.st_size),
                            time.ctime(r.st_mtime)))
             else:
                 error("File does not exist: %s" % path)
-            
-        print ("%d files : %d (%s)" % (files, size, 
+
+        print ("%d files : %d (%s)" % (files, size,
                 gdsc.omero.convert(size)))
     except Exception as e:
         die("An error occurred: %s" % e)

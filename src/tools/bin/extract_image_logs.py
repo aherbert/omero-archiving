@@ -256,7 +256,7 @@ def main():
         result = run(conn, params)
 
         if result >= 0:
-            print("Processed %s image%s with log files" % 
+            print("Processed %s image%s with log files" %
                   (result, result != 1 and 's' or ''))
     except Exception as e:
         print("An error occurred: %s" % e)

@@ -38,10 +38,10 @@ def main():
         sys.exit()
 
     (options, args) = parser.parse_args()
-      
+
     sender = 'anon@host.com'
     receivers = []
-    
+
     for arg in args:
       receivers.append(arg)
 
@@ -53,7 +53,7 @@ This is a test e-mail message from %s.
 """ % (sender, ", ".join(receivers), prog)
 
     smtpObj = smtplib.SMTP('localhost')
-    smtpObj.sendmail(sender, receivers, message)   
+    smtpObj.sendmail(sender, receivers, message)
     smtpObj.quit()
     print("Successfully sent email")
 

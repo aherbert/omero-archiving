@@ -500,7 +500,7 @@ def generateUserReport(usage_list, title, options, previous=None):
 
     for dic in usage_list:
         report.append(stringFormat % (dic['id'], dic['label'],
-                      locale.format('%d', dic['data'], True), 
+                      locale.format('%d', dic['data'], True),
                       convert(dic['data'])))
 
     report.append("-" * len(header))

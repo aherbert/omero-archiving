@@ -45,10 +45,10 @@ def init_options():
                           add_help_option=True, version="%prog 1.0")
 
     group = OptionGroup(parser, "Archive")
-    group.add_option("--arkivum_root", dest="arkivum_root", 
+    group.add_option("--arkivum_root", dest="arkivum_root",
                      default=gdsc.omero.ARKIVUM_ROOT,
                      help="Arkivum root (for the mounted appliance) [%default]")
-    group.add_option("--arkivum_path", dest="arkivum_path", 
+    group.add_option("--arkivum_path", dest="arkivum_path",
                      default=gdsc.omero.ARKIVUM_PATH,
                      help="Arkivum path (directory for OMERO files) [%default]")
     parser.add_option_group(group)
@@ -63,14 +63,14 @@ def log(msg):
     @param msg: The message
     """
     print(msg)
-    
+
 def error(msg):
     """
     Print an error message
     @param msg: The message
     """
     print("ERROR:", msg)
-    
+
 def die(msg):
     """
     Print an error then exit
@@ -90,7 +90,7 @@ def get_info(rel_path):
           '/api/2/files/fileInfo/'+urllib.quote(rel_path))
     # Do not verify the SSL certificate
     r = requests.get(url, verify=False)
-    
+
     # What to do here? Arkivum has a 10 minute delay
     # between copying a file and the ingest starting. So it may
     # not show in the API just yet.
@@ -102,7 +102,7 @@ def get_info(rel_path):
     else:
         error("REST API response code: " + str(r.status_code))
     return {}
-    
+
 def process(path):
     """
     Get information on the file from the Arkivum server
@@ -111,7 +111,7 @@ def process(path):
     global options
 
     log("Processing file: " + path)
-    
+
     # Try to determine the files relative path on the Arkivum appliance from
     # the input path, E.g
     #
@@ -123,31 +123,31 @@ def process(path):
     #
     # Path on mounted appliance filesystem
     # [options.arkivum_root]/[options.arkivum_path]/OMERO/ManagedRepository/user1_1/2/016-04/04/16-57-37.543/__utm.gif
-    
+
     # Strip the Arkivum root if the input file was a file on the mounted FS
     if path.startswith(options.arkivum_root):
         path = path[len(options.arkivum_root):]
         # Do nothing else so the script can be used to query any file
-        
+
     else:
         # Make relative
         if path.startswith('/'):
             path = path[1:]
-        
+
         # Add the path prefix for the storage location on the Arkivum appliance.
         # This can happen if the input file was the original OMERO location.
         if not path.startswith(options.arkivum_path):
             path = os.path.join(options.arkivum_path, path)
-  
+
     # Make relative
     if path.startswith('/'):
         path = path[1:]
-    
+
     # Make sure there are no extra directory dividers as this breaks the API
     path = re.sub('\/+','/', path)
-        
+
     log("Arkivum relative path: " + path)
-    
+
     # Connect to the Arkivum server and get the file information
     info = get_info(path)
     if len(info):
@@ -158,7 +158,7 @@ def process(path):
 def check_dir(path, carp=True):
     """
     Check the path exists
-    @param path: The path    
+    @param path: The path
     @param carp: Die if the path does not exist, otherwise warn
     """
     if not os.path.isdir(path):
@@ -184,7 +184,7 @@ def main():
             process(path)
 
     except Exception as e:
-        die("An error occurred: %s" % e)        
+        die("An error occurred: %s" % e)
 
 # Standard boilerplate to call the main() function to begin
 # the program.
