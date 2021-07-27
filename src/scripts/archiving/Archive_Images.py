@@ -35,6 +35,18 @@ PARAM_IDS = "IDs"
 PARAM_EXPIRY = "Expiry"
 PARAM_NOTES = "Description"
 
+def close(conn1, conn2):
+    """
+    Close the connections
+
+    @param conn1: The first connection
+    @param conn2: The second connection
+    """
+    if conn1:
+        conn1.close()
+    if conn2:
+        conn2.close()
+
 def getUserId(description):
     """
     Get the user Id from the tag description
@@ -79,19 +91,71 @@ def run(conn, params):
     if not images:
         return (0,0,0)
 
-    # TODO
-    # Allow group owners with read permissions the ability to tag
-    # images of members of the group.
-
     linked_id = conn.getEventContext().userId
     linked_omename = conn.getEventContext().userName
 
     qs = conn.getQueryService()
 
+    # Archive tags should be applied as the owner of the image.
+    # If group permissions are decreased to a more private level
+    # any tags that have been created by another user will be removed.
+    # To avoid this the tags are applied as the user on the condition:
+    # 1. The user tags their own images
+    # 2. The group owner or an admin user tags the images
+    # Note: Admin/group owners can view other users images even in 
+    # a private group.
+    
+    # Obtain the image owner and the group.
+    # This should be the same for all images. It may not be if running as
+    # a command line program. When running through a script via OMERO.insight
+    # then the scripting framework should prevent multiple groups. Multiple
+    # owner may occur if a user creates a composite dataset.
+    oids = set()
+    gids = set()
+    for x in images:
+        oids.add(x.getOwner().id)
+        gids.add(x.getDetails().getGroup().id)
+    if len(oids) > 1:
+        raise Exception("ERROR : Tagging not supported for multiple image owners: %s" % oids)
+    if len(gids) > 1:
+        raise Exception("ERROR : Tagging not supported for multiple groups: %s" % gids)
+
+    owner_id = oids.pop()
+    group_id = gids.pop()
+    conn2 = None
+    conn3 = None
+    if owner_id != linked_id:
+        print("User %s applying tags to user %s images" % (linked_id, owner_id))
+        # Check for allowed permissions
+        if not conn.isAdmin():
+            # Must be the group owner
+            group = conn.getObject('ExperimenterGroup', group_id)
+            # The first list from groupSummary is the group leaders
+            if not any(x.id == linked_id for x in group.groupSummary()[0]):
+                raise Exception("ERROR : Tagging other users images requires group leader permissions")
+            print("Elevating user %s permissions" % linked_id)
+            # Create admin connection
+            conn3 = BlitzGateway(gdsc.omero.USERNAME, gdsc.omero.PASSWORD,
+                                 host=gdsc.omero.HOST, port=gdsc.omero.PORT)
+            if not conn3.connect() or not conn3.isAdmin():
+                raise Exception("Failed to elevate to admin connection: %s" %
+                                conn.getLastError())
+            conn = conn3
+
+        # conn is now an admin connection
+        # Switch connection to the image owner
+        omename = images[0].getOwner().getName()
+        conn2 = conn.suConn(omename, ttl=gdsc.omero.TIMEOUT)
+        if not conn2:
+            raise Exception("Failed to connect to OMERO as user ID '%s'" 
+                            % omename)
+        conn = conn2
+        # conn2 and conn3 will be closed manually on function return
+
     # Use the actual SERVICE_OPTS so that when we set the group it is
     # correct when saving a new tag
     service_opts = conn.SERVICE_OPTS  #.copy()
-    service_opts.setOmeroGroup(conn.getEventContext().groupId)
+    service_opts.setOmeroGroup(group_id)
 
     # List all the images which already have the tag or are already in the
     # archive process
@@ -124,6 +188,7 @@ def run(conn, params):
     existing = len(ignore)
 
     if not links:
+        close(conn2, conn3)
         return (0, existing, 0)
 
     # Find the to-archive tag
@@ -157,6 +222,7 @@ def run(conn, params):
         tag_id = tag.getId()
         if tag_id == 0:
             print("ERROR : Unable to find tag", gdsc.omero.TAG_TO_ARCHIVE)
+            close(conn2, conn3)
             return (0,existing,0)
 
     # Add the tag to the links
@@ -172,11 +238,12 @@ def run(conn, params):
     tag.setValue([['Owner id',str(linked_id)],
                   ['Owner',linked_omename],
                   [PARAM_EXPIRY,str(params[PARAM_EXPIRY])],
-                  [PARAM_NOTES,params[PARAM_NOTES]]])
+                  [PARAM_NOTES,params.get(PARAM_NOTES, "")]])
     tag.save()
     tag_id2 = tag.getId()
     if tag_id2 == 0:
         print("ERROR : Unable to create tag", gdsc.omero.TAG_ARCHIVE_NOTE)
+        close(conn2, conn3)
         return (0, existing, 0)
 
     links2 = []
@@ -194,9 +261,16 @@ def run(conn, params):
     # have been committed.
     try:
         conn.getUpdateService().saveArray(links2, service_opts)
+    except omero.ReadOnlyGroupSecurityViolation as x:
+        # May occur if a ReadOnly group and the user is an admin/group owner.
+        # They can see the images of another user but cannot tag them.
+        print("ERROR : Invalid permissions to create archive notes:", x.message)
+        close(conn2, conn3)
+        raise x
     except omero.ValidationException as x:
-        print("ERROR : Unable to create archive notes", x)
-        return (0, existing, 0)
+        print("ERROR : Unable to create archive notes:", x)
+        close(conn2, conn3)
+        return (0, existing, len(links2))
 
     # Here we have added an archive note. But the images are not yet marked
     # for archiving. Try and mark the images in bilk and fall back to marking
@@ -224,6 +298,7 @@ def run(conn, params):
                 print('Failed to tag image:', link.parent.getId())
                 error = error + 1
 
+    close(conn2, conn3)
     return (new, existing, error)
 
 
@@ -282,7 +357,7 @@ def run_as_program():
     params[PARAM_DATATYPE] = 'Dataset' if options.datatype == 'Dataset' else 'Image'
     params[PARAM_EXPIRY] = options.expiry
     params[PARAM_NOTES] = options.description
-
+    
     conn = None
     try:
         print("Creating OMERO gateway")
@@ -293,6 +368,9 @@ def run_as_program():
         if not conn.connect():
             raise Exception("Failed to connect to OMERO: %s" %
                             conn.getLastError())
+
+        # Allow all groups
+        conn.SERVICE_OPTS.setOmeroGroup(-1)
 
         (new, existing, error) = run(conn, params)
 
@@ -363,6 +441,10 @@ See: http://www.sussex.ac.uk/gdsc/intranet/microscopy/omero/scripts/archiveimage
         # Combine the totals for the summary message
         msg = summary(new, existing, error)
         client.setOutput("Message", rstring(msg))
+    except Exception as x:
+        # Special case of invalid tagging permissions is a
+        # omero.ReadOnlyGroupSecurityViolation which has a useful message attribute
+        client.setOutput("Message", rstring(getattr(x, 'message', str(x))))
     finally:
         client.closeSession()
 
