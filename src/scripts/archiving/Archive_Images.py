@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # ------------------------------------------------------------------------------
 # Permission to use, copy, modify, and/or distribute this software for any
