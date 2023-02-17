@@ -33,13 +33,22 @@ def main():
         description="Program to send a test e-mail to the given addresses",
         add_help_option=False)
 
+    group = OptionGroup(parser, "Message")
+    group.add_option("--sender", dest="sender",
+                     default='anon@host.com',
+                     help="e-mail sender [%default]")
+    group.add_option("--message", dest="message",
+                     default=('This is a test e-mail message from %s.' % prog),
+                     help="e-mail message [%default]")
+    parser.add_option_group(group)
+
     if len(sys.argv) < 2:
         parser.print_help()
         sys.exit()
 
     (options, args) = parser.parse_args()
 
-    sender = 'anon@host.com'
+    sender = options.sender
     receivers = []
 
     for arg in args:
@@ -49,8 +58,8 @@ def main():
 To: %s
 Subject: SMTP e-mail test
 
-This is a test e-mail message from %s.
-""" % (sender, ", ".join(receivers), prog)
+%s
+""" % (sender, ", ".join(receivers), options.message)
 
     smtpObj = smtplib.SMTP('localhost')
     smtpObj.sendmail(sender, receivers, message)
