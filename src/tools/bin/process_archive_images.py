@@ -869,21 +869,21 @@ def process(register, conn, omename, groups, linked_id, linked_omename,
                     if result[0].val not in dataset:
                         dataset[result[0].val] = result[1].val
 
-                # Get the datasets for the remaining images
-                # (these are datasets with no parent project)
-                remaining = set(image_ids).difference(dataset.keys())
-                if remaining:
-                    hql = "select l.child.id, l.parent.name " \
-                            "from DatasetImageLink l " \
-                            "where l.child.id in (:values)"
+            # Get the datasets for the remaining images
+            # (these are datasets with no parent project)
+            remaining = set(image_ids).difference(dataset.keys())
+            if remaining:
+                hql = "select l.child.id, l.parent.name " \
+                        "from DatasetImageLink l " \
+                        "where l.child.id in (:values)"
 
-                    params = Parameters()
-                    params.map = {}
-                    params.map["values"] = rlist([rlong(x) for x in remaining])
+                params = Parameters()
+                params.map = {}
+                params.map["values"] = rlist([rlong(x) for x in remaining])
 
-                    for result in qs.projection(hql, params, service_opts):
-                        if result[0].val not in dataset:
-                            dataset[result[0].val] = result[1].val
+                for result in qs.projection(hql, params, service_opts):
+                    if result[0].val not in dataset:
+                        dataset[result[0].val] = result[1].val
 
         # Tag all the images as pending (if not already)
         links = []
