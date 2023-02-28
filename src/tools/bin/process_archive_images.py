@@ -243,7 +243,7 @@ def process_reviewed(adminConn, input, output, job_status, archived, register):
         log("Processing job " + job_file)
 
         # Read the job file
-        job = configparser.RawConfigParser()
+        job = configparser.RawConfigParser(delimiters='=')
         job.optionxform = lambda option: option
         job.read(job_file)
 
@@ -405,7 +405,7 @@ def process_reviewed(adminConn, input, output, job_status, archived, register):
             # by an archiving script.
             ark_file = gdsc.omero.get_ark_path(options.archive_log, path, False)
             if os.path.exists(ark_file):
-                config = configparser.RawConfigParser()
+                config = configparser.RawConfigParser(delimiters='=')
                 config.read(ark_file)
                 if len(config.sections()) > 1:
                     warn("File for declined job appears to have been archived: %s" % ark_file)
@@ -470,7 +470,7 @@ def email_admin(job_dir, filenames):
     filesizes = []
     for filename in filenames:
         job_file = os.path.join(job_dir, filename)
-        job = configparser.RawConfigParser()
+        job = configparser.RawConfigParser(delimiters='=')
         job.read(job_file)
         omename = job.get(gdsc.omero.JOB_INFO, 'owner omename')
         size = job.get(gdsc.omero.JOB_INFO, 'total size')
@@ -744,7 +744,7 @@ def process(register, conn, omename, groups, linked_id, linked_omename,
                                 job_name + str(job_id))
         job_id = job_id + 1
         log("Creating archive job: %s" % job_file)
-        job = configparser.RawConfigParser()
+        job = configparser.RawConfigParser(delimiters='=')
         job.optionxform = lambda option: option
         job.add_section(gdsc.omero.JOB_INFO)
         job.add_section(gdsc.omero.JOB_IMAGES)
@@ -946,7 +946,7 @@ def process(register, conn, omename, groups, linked_id, linked_omename,
 
             # Initialise the .ark files with a connected image ID
             ark_file = gdsc.omero.get_ark_path(options.archive_log, path, True)
-            config = configparser.RawConfigParser()
+            config = configparser.RawConfigParser(delimiters='=')
             config.read(ark_file)
             if not config.has_section(gdsc.omero.ARK_SOURCE):
                 config.add_section(gdsc.omero.ARK_SOURCE)

@@ -91,7 +91,7 @@ def process_job(job_file):
         raise Exception("File does not exist: " + job_file);
 
     # Open the job file
-    job = configparser.RawConfigParser()
+    job = configparser.RawConfigParser(delimiters='=')
     job.optionxform = lambda option: option
     job.read(job_file)
 

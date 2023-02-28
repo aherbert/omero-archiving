@@ -120,7 +120,7 @@ def build_report(name, items):
             error("Missing archive record for '%s' file: %s" % (name, path))
             missing = missing + 1
         else:
-            config = configparser.RawConfigParser()
+            config = configparser.RawConfigParser(delimiters='=')
             config.read(ark_file)
             # Can get 'image', 'owner', 'linked by', 'path', 'bytes'
             sum = sum + int(config.get(gdsc.omero.ARK_SOURCE, 'bytes'))

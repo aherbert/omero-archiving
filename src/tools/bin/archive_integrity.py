@@ -163,7 +163,7 @@ def list_images(name, items):
         if not os.path.isfile(ark_file):
             error("Missing archive record for '%s' file: %s" % (name, path))
         else:
-            config = configparser.RawConfigParser()
+            config = configparser.RawConfigParser(delimiters='=')
             config.read(ark_file)
             paths.append(path)
             ids.append(config.getint(gdsc.omero.ARK_SOURCE, 'image'))

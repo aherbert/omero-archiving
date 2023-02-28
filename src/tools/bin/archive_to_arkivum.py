@@ -269,7 +269,7 @@ def process(path):
     if not os.path.isfile(ark_file):
         raise Exception("Missing archive record file: %s" % ark_file)
     log("  Archive record = " + ark_file)
-    config = configparser.RawConfigParser()
+    config = configparser.RawConfigParser(delimiters='=')
     config.read(ark_file)
     if not config.has_section(gdsc.omero.ARK_ARKIVUM_ARCHIVER):
         config.add_section(gdsc.omero.ARK_ARKIVUM_ARCHIVER)
@@ -498,7 +498,7 @@ def process_job(job_file):
     log("Processing job " + job_file)
 
     # Open the job file
-    job = configparser.RawConfigParser()
+    job = configparser.RawConfigParser(delimiters='=')
     job.optionxform = lambda option: option
     job.read(job_file)
 
