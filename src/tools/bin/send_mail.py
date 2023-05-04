@@ -20,7 +20,6 @@ is correctly configured.
 
 import sys
 from os.path import basename
-from os import getpid
 from optparse import OptionParser
 from optparse import OptionGroup
 import smtplib
