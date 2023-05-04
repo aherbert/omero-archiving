@@ -22,7 +22,7 @@ import sys
 from os.path import basename
 from optparse import OptionParser
 from optparse import OptionGroup
-import smtplib
+from smtplib import SMTP
 
 # Gather our code in a main() function
 def main():
@@ -60,9 +60,8 @@ Subject: SMTP e-mail test
 %s
 """ % (sender, ", ".join(receivers), options.message)
 
-    smtpObj = smtplib.SMTP('localhost')
-    smtpObj.sendmail(sender, receivers, message)
-    smtpObj.quit()
+    with SMTP('localhost') as smtp:
+      smtp.sendmail(sender, receivers, message)
     print("Successfully sent email")
 
 # Standard boilerplate to call the main() function to begin
